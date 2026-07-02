@@ -728,7 +728,7 @@ class FunGUI:
         tk.Label(
             popup, text="\U0001F50A Mets le son !", bg=color, fg="white", font=("Segoe UI", 16, "bold")
         ).pack(expand=True, fill="both")
-        popup.after(3000, popup.destroy)
+        popup.after(10000, popup.destroy)
 
     def _spawn_popup(self):
         if not _stop_event.is_set():
