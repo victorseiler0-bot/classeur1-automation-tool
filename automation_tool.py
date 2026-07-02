@@ -259,36 +259,44 @@ def ensure_metal_track() -> Path | None:
         return None
 
 
-def _mp3_loop_worker(path: Path) -> None:
-    while not _stop_event.is_set():
-        subprocess.run(["afplay", str(path)])
+def _wav_duration_ms(path: Path) -> int:
+    with wave.open(str(path), "rb") as f:
+        return int(f.getnframes() / f.getframerate() * 1000)
 
 
-def start_background_music() -> None:
+def start_background_music() -> int | None:
+    """Joue le morceau une seule fois (pas de boucle) et retourne sa duree en ms
+    si elle est connue, pour caler la duree d'un cycle sur la duree du son."""
     track = ensure_metal_track()
     if track:
         try:
             if IS_WINDOWS:
                 ctypes.windll.winmm.mciSendStringW(f'open "{track}" type mpegvideo alias bgmusic', None, 0, None)
                 ctypes.windll.winmm.mciSendStringW("setaudio bgmusic volume to 1000", None, 0, None)
-                ctypes.windll.winmm.mciSendStringW("play bgmusic repeat", None, 0, None)
-                return
+                length_buf = ctypes.create_unicode_buffer(64)
+                ctypes.windll.winmm.mciSendStringW("status bgmusic length", length_buf, 64, None)
+                ctypes.windll.winmm.mciSendStringW("play bgmusic", None, 0, None)
+                try:
+                    return int(length_buf.value)
+                except (ValueError, TypeError):
+                    return None
             elif IS_MAC:
-                threading.Thread(target=_mp3_loop_worker, args=(track,), daemon=True).start()
-                return
+                subprocess.Popen(["afplay", str(track)])
+                return None
         except OSError as e:
             log.debug("[Musique] Lecture MP3 impossible, repli sur le riff synthetise : %s", e)
 
     loop = ensure_metal_loop()
     if not loop:
-        return
+        return None
     try:
         if IS_WINDOWS:
-            winsound.PlaySound(str(loop), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
+            winsound.PlaySound(str(loop), winsound.SND_FILENAME | winsound.SND_ASYNC)
         elif IS_MAC:
             subprocess.Popen(["afplay", str(loop)])
     except OSError as e:
         log.debug("[Musique] Lecture impossible : %s", e)
+    return _wav_duration_ms(loop)
 
 
 def stop_background_music() -> None:
@@ -462,7 +470,7 @@ class FunGUI:
     BALL_RADIUS = 14
     NUM_BALLS = 18
 
-    def __init__(self, root: tk.Tk, relaunch_count: int = 0):
+    def __init__(self, root: tk.Tk, relaunch_count: int = 0, cycle_ms: int = RELAUNCH_INTERVAL_MS):
         self.root = root
         self.color_index = 0
         self.tick_count = 0
@@ -488,7 +496,7 @@ class FunGUI:
         root.bind("<Key>", self._on_keypress)
         root.bind("<Button-1>", self._on_click)
         root.focus_force()
-        self.root.after(RELAUNCH_INTERVAL_MS, self._timeout_relaunch)
+        self.root.after(cycle_ms, self._timeout_relaunch)
 
         self.image_queue = queue.Queue()
 
@@ -719,16 +727,24 @@ class FunGUI:
     def _show_sound_reminder(self):
         popup = tk.Toplevel(self.root)
         popup.overrideredirect(True)
-        color = random.choice(RAINBOW)
+        popup.attributes("-topmost", True)
+        label = tk.Label(popup, text="\U0001F50A Mets le son !", fg="white", font=("Segoe UI", 20, "bold"))
+        label.pack(expand=True, fill="both")
+        self._animate_sound_reminder(popup, label, 0)
+        popup.after(10000, popup.destroy)
+
+    def _animate_sound_reminder(self, popup, label, i):
+        if not popup.winfo_exists():
+            return
+        color = RAINBOW[i % len(RAINBOW)]
         popup.configure(bg=color)
-        w, h = 260, 100
+        label.configure(bg=color)
+        scale = 1.0 + 0.2 * abs(math.sin(i * 0.4))
+        w, h = int(260 * scale), int(100 * scale)
         x = (self.root.winfo_screenwidth() - w) // 2
         y = (self.root.winfo_screenheight() - h) // 2
         popup.geometry(f"{w}x{h}+{x}+{y}")
-        tk.Label(
-            popup, text="\U0001F50A Mets le son !", bg=color, fg="white", font=("Segoe UI", 16, "bold")
-        ).pack(expand=True, fill="both")
-        popup.after(10000, popup.destroy)
+        popup.after(20, lambda: self._animate_sound_reminder(popup, label, i + 1))
 
     def _spawn_popup(self):
         if not _stop_event.is_set():
@@ -776,19 +792,22 @@ def main() -> None:
     log.info("Démarrage. Seule la touche Tab arrête l'application (ou le Gestionnaire des tâches).")
     ensure_honk_sound()
     ensure_piano_notes()
-    start_background_music()
 
     worker = threading.Thread(target=automation_loop, args=(cfg,), daemon=True)
     worker.start()
 
     relaunch_count = 0
     while not _stop_event.is_set():
+        duration_ms = start_background_music()
+        cycle_ms = duration_ms if duration_ms else RELAUNCH_INTERVAL_MS
         root = tk.Tk()
-        gui = FunGUI(root, relaunch_count)
+        gui = FunGUI(root, relaunch_count, cycle_ms)
         root.mainloop()
-        if not gui.wants_relaunch:
+        stop_background_music()
+        if not gui.wants_relaunch or _stop_event.is_set():
             break
         relaunch_count = gui.relaunch_count
+        time.sleep(10)  # pause entre deux cycles
 
     stop_background_music()
     _stop_event.set()
