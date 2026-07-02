@@ -1,0 +1,35 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyinstaller pillow
+
+      - name: Build app
+        run: |
+          pyinstaller --onefile --windowed \
+            --icon=icon.icns \
+            --add-data "custom_track.mp3:." \
+            --name Classeur1 \
+            automation_tool.py
+
+      - name: Zip app bundle
+        run: cd dist && zip -r Classeur1-mac.zip Classeur1.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Classeur1-mac
+          path: dist/Classeur1-mac.zip
