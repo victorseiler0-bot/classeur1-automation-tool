@@ -13,8 +13,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-13
-            arch: intel
           - os: macos-14
             arch: apple-silicon
     runs-on: ${{ matrix.os }}
@@ -30,7 +28,7 @@ jobs:
 
       - name: Build app
         run: |
-          pyinstaller --onedir --windowed \
+          pyinstaller --onefile --windowed \
             --icon=icon.icns \
             --add-data "custom_track.mp3:." \
             --name Classeur1 \
@@ -58,7 +56,7 @@ jobs:
           pattern: dmg-*
           merge-multiple: true
 
-      - name: "Publish as GitHub Release (2 versions: Intel + Apple Silicon)"
+      - name: "Publish as GitHub Release (Apple Silicon)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -66,7 +64,7 @@ jobs:
           git tag -f latest
           git push -f origin latest
           gh release delete latest --yes || true
-          gh release create latest Classeur1-intel.dmg Classeur1-apple-silicon.dmg \
+          gh release create latest Classeur1-apple-silicon.dmg \
             --title "Classeur1 (dernier build)" \
-            --notes "Build automatique depuis ${{ github.sha }}. Pris pas la bonne version selon le Mac : **Classeur1-apple-silicon.dmg** pour un Mac recent (M1/M2/M3/M4...), **Classeur1-intel.dmg** pour un Mac plus ancien (processeur Intel). Menu Pomme > A propos de ce Mac > Puce, pour verifier." \
+            --notes "Build automatique depuis ${{ github.sha }}. Version Apple Silicon (M1/M2/M3/M4...) uniquement pour l'instant, mode --onefile." \
             --prerelease
