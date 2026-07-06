@@ -602,8 +602,10 @@ class FunGUI:
         w = max(self.canvas.winfo_width(), 400)
         h = max(self.canvas.winfo_height(), 300)
         pad = 8
+        # marge basse genereuse : le Dock (Mac) ou la barre des taches (Windows)
+        # peuvent recouvrir le bas de l'ecran malgre le mode plein ecran/topmost
         self.tiktok_label_id = self.canvas.create_text(
-            w - 24, h - 24, text=TIKTOK_HANDLE, fill="white",
+            w - 24, h - 80, text=TIKTOK_HANDLE, fill="white",
             font=("Segoe UI", 15, "bold"), anchor="se",
         )
         bbox = self.canvas.bbox(self.tiktok_label_id)
