@@ -72,9 +72,7 @@ DEFAULT_CONFIG = {
     "work_dir_retention_days": 7,
 }
 
-FLASHY_COLORS = ["#ff006e", "#fb5607", "#ffbe0b", "#8338ec", "#3a86ff", "#06ffa5", "#ff0000", "#00ffff", "#ff00ff"]
-BW_COLORS = ["#000000", "#ffffff"]
-COLOR_MODES = [FLASHY_COLORS, BW_COLORS]  # choisi au hasard a chaque lancement
+FLASHY_COLORS = ["#ff0090", "#ff5100", "#fff700", "#a600ff", "#00aaff", "#00ff85", "#ff0000", "#00f7ff", "#ff00e6"]
 POPUP_MESSAGES = [
     "Ça tourne !", "Cycle terminé", "Tout va bien", "Automatisation active", "Bip bip", "🌈 ✨",
     "🤡 Clown alert 🤡", "Envoyez les clowns !", "🤡🤡🤡", "Honk honk !",
@@ -482,7 +480,7 @@ class FunGUI:
 
     def __init__(self, root: tk.Tk, relaunch_count: int = 0, cycle_ms: int = RELAUNCH_INTERVAL_MS):
         self.root = root
-        self.flicker_colors = random.choice(COLOR_MODES)
+        self.flicker_colors = FLASHY_COLORS
         self.color_index = 0
         self.tick_count = 0
         self.balls = []

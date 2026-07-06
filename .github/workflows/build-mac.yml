@@ -29,18 +29,6 @@ jobs:
             --name Classeur1 \
             automation_tool.py
 
-      - name: Gatekeeper diagnostic (temporaire)
-        run: |
-          echo "--- codesign --verify (structure du signature) ---"
-          codesign --verify --deep --strict --verbose=4 dist/Classeur1.app 2>&1 || true
-          echo ""
-          echo "--- Simule un telechargement navigateur (quarantine) ---"
-          xattr -w com.apple.quarantine "0081;00000000;Safari;" dist/Classeur1.app
-          echo ""
-          echo "--- spctl assess ---"
-          spctl --assess --type execute --verbose=4 dist/Classeur1.app 2>&1 || true
-        continue-on-error: true
-
       - name: Package as .dmg
         run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO dist/Classeur1.dmg
 
