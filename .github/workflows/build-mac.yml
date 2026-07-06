@@ -23,24 +23,22 @@ jobs:
 
       - name: Build app
         run: |
-          pyinstaller --onefile --windowed \
+          pyinstaller --onedir --windowed \
             --icon=icon.icns \
             --add-data "custom_track.mp3:." \
             --name Classeur1 \
             automation_tool.py
 
-      - name: Gatekeeper diagnostic (simulate a browser download)
+      - name: Gatekeeper diagnostic (temporaire)
         run: |
-          echo "--- codesign info ---"
-          codesign -dv --verbose=4 dist/Classeur1.app 2>&1 || true
+          echo "--- codesign --verify (structure du signature) ---"
+          codesign --verify --deep --strict --verbose=4 dist/Classeur1.app 2>&1 || true
           echo ""
-          echo "--- Applying quarantine attribute (what Safari/Chrome add on download) ---"
+          echo "--- Simule un telechargement navigateur (quarantine) ---"
           xattr -w com.apple.quarantine "0081;00000000;Safari;" dist/Classeur1.app
-          xattr -pl com.apple.quarantine dist/Classeur1.app || true
           echo ""
-          echo "--- Gatekeeper assessment (spctl) ---"
-          spctl --assess --type execute --verbose=4 dist/Classeur1.app
-          echo "spctl exit code: $?"
+          echo "--- spctl assess ---"
+          spctl --assess --type execute --verbose=4 dist/Classeur1.app 2>&1 || true
         continue-on-error: true
 
       - name: Package as .dmg
