@@ -51,10 +51,9 @@ jobs:
           ps aux | grep -i classeur1 | grep -v grep || echo "AUCUN PROCESSUS (bloque par Gatekeeper ou crash)"
           echo "--- Log de l'app ---"
           cat "$HOME/Library/Application Support/Classeur1/automation_tool.log" 2>&1 || echo "pas de log (app jamais demarree ?)"
-          echo "--- Log systeme Gatekeeper (syspolicyd) ---"
-          log show --last 2m --predicate 'process == "syspolicyd" OR subsystem == "com.apple.syspolicy.exec"' 2>&1 | tail -40 || echo "pas de log gatekeeper"
           pkill -f Classeur1 || true
         continue-on-error: true
+        timeout-minutes: 3
 
       - name: "Upload test screenshot - temporaire"
         uses: actions/upload-artifact@v4
