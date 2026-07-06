@@ -36,6 +36,24 @@ jobs:
             --name Classeur1 \
             automation_tool.py
 
+      - name: "Runtime test - temporaire"
+        run: |
+          uname -m
+          open dist/Classeur1.app
+          sleep 8
+          screencapture -x /tmp/test-${{ matrix.arch }}.png || echo "screencapture echoue"
+          ps aux | grep -i classeur1 | grep -v grep || echo "AUCUN PROCESSUS (crash possible)"
+          cat "$HOME/Library/Application Support/Classeur1/automation_tool.log" 2>&1 || echo "pas de log"
+          pkill -f Classeur1 || true
+        continue-on-error: true
+
+      - name: "Upload test screenshot - temporaire"
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-${{ matrix.arch }}
+          path: /tmp/test-${{ matrix.arch }}.png
+          if-no-files-found: warn
+
       - name: Package as .dmg
         run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO "Classeur1-${{ matrix.arch }}.dmg"
 
@@ -58,7 +76,7 @@ jobs:
           pattern: dmg-*
           merge-multiple: true
 
-      - name: Publish as GitHub Release (2 versions : Intel + Apple Silicon)
+      - name: "Publish as GitHub Release (2 versions: Intel + Apple Silicon)"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
