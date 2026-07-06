@@ -29,25 +29,6 @@ jobs:
             --name Classeur1 \
             automation_tool.py
 
-      - name: Runtime test (lance l'app et capture l'ecran) - temporaire
-        run: |
-          open dist/Classeur1.app
-          sleep 8
-          screencapture -x /tmp/classeur1_test.png || echo "screencapture a echoue"
-          echo "--- Processus actifs ---"
-          ps aux | grep -i classeur1 | grep -v grep || echo "AUCUN PROCESSUS (crash possible)"
-          echo "--- Log de l'app ---"
-          cat "$HOME/Library/Application Support/Classeur1/automation_tool.log" 2>&1 || echo "pas de log trouve"
-          pkill -f Classeur1 || true
-        continue-on-error: true
-
-      - name: Upload screenshot (temporaire)
-        uses: actions/upload-artifact@v4
-        with:
-          name: classeur1-screenshot
-          path: /tmp/classeur1_test.png
-          if-no-files-found: warn
-
       - name: Package as .dmg
         run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO dist/Classeur1.dmg
 
