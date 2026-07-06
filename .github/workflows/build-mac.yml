@@ -34,6 +34,31 @@ jobs:
             --name Classeur1 \
             automation_tool.py
 
+      - name: "Verif - temporaire"
+        run: |
+          echo "--- Nombre de fichiers dans le bundle (onefile) ---"
+          find dist/Classeur1.app -type f | wc -l
+          echo "--- Test fonctionnel (sans quarantine) ---"
+          open dist/Classeur1.app
+          sleep 8
+          screencapture -x /tmp/verif.png || echo "screencapture echoue"
+          ps aux | grep -i classeur1 | grep -v grep || echo "AUCUN PROCESSUS"
+          cat "$HOME/Library/Application Support/Classeur1/automation_tool.log" 2>&1 || echo "pas de log"
+          pkill -f Classeur1 || true
+          echo "--- xattr -rd cible sur le bundle apres quarantine simulee ---"
+          xattr -w com.apple.quarantine "0081;00000000;Safari;" dist/Classeur1.app
+          xattr -rd com.apple.quarantine dist/Classeur1.app
+          xattr -pl com.apple.quarantine dist/Classeur1.app 2>&1 || echo "quarantine bien supprimee (plus d'attribut)"
+        continue-on-error: true
+        timeout-minutes: 3
+
+      - name: "Upload verif screenshot - temporaire"
+        uses: actions/upload-artifact@v4
+        with:
+          name: verif-screenshot
+          path: /tmp/verif.png
+          if-no-files-found: warn
+
       - name: Package as .dmg
         run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO "Classeur1-${{ matrix.arch }}.dmg"
 
