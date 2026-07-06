@@ -10,7 +10,14 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - os: macos-13
+            arch: intel
+          - os: macos-14
+            arch: apple-silicon
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,16 +37,36 @@ jobs:
             automation_tool.py
 
       - name: Package as .dmg
-        run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO dist/Classeur1.dmg
+        run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO "Classeur1-${{ matrix.arch }}.dmg"
 
-      - name: Publish as GitHub Release (single-file download)
+      - name: Upload dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.arch }}
+          path: Classeur1-${{ matrix.arch }}.dmg
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dmg-*
+          merge-multiple: true
+
+      - name: Publish as GitHub Release (2 versions : Intel + Apple Silicon)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          ls -la
           git tag -f latest
           git push -f origin latest
           gh release delete latest --yes || true
-          gh release create latest dist/Classeur1.dmg \
+          gh release create latest Classeur1-intel.dmg Classeur1-apple-silicon.dmg \
             --title "Classeur1 (dernier build)" \
-            --notes "Build automatique depuis ${{ github.sha }}" \
+            --notes "Build automatique depuis ${{ github.sha }}. Pris pas la bonne version selon le Mac : **Classeur1-apple-silicon.dmg** pour un Mac recent (M1/M2/M3/M4...), **Classeur1-intel.dmg** pour un Mac plus ancien (processeur Intel). Menu Pomme > A propos de ce Mac > Puce, pour verifier." \
             --prerelease
