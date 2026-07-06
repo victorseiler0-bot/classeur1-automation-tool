@@ -32,22 +32,6 @@ jobs:
       - name: Package as .dmg
         run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO dist/Classeur1.dmg
 
-      - name: Gatekeeper diagnostic (retest sur le .dmg final)
-        run: |
-          echo "--- Quarantine sur le dmg (simule un telechargement navigateur) ---"
-          xattr -w com.apple.quarantine "0081;00000000;Safari;" dist/Classeur1.dmg
-          MOUNT_DIR=$(hdiutil attach dist/Classeur1.dmg -nobrowse -readonly | tail -1 | awk -F '\t' '{print $NF}')
-          echo "Monte sur: $MOUNT_DIR"
-          echo "--- Quarantine propagee sur l'app montee ? ---"
-          xattr -pl com.apple.quarantine "$MOUNT_DIR/Classeur1.app" || echo "(pas propagee automatiquement)"
-          xattr -w com.apple.quarantine "0081;00000000;Safari;" "$MOUNT_DIR/Classeur1.app" || true
-          echo "--- codesign --verify (signature valide ou cassee ?) ---"
-          codesign --verify --deep --strict --verbose=4 "$MOUNT_DIR/Classeur1.app" 2>&1 | tail -5
-          echo "--- spctl assess (statut Gatekeeper) ---"
-          spctl --assess --type execute --verbose=4 "$MOUNT_DIR/Classeur1.app" 2>&1 || true
-          hdiutil detach "$MOUNT_DIR" || true
-        continue-on-error: true
-
       - name: Publish as GitHub Release (single-file download)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
