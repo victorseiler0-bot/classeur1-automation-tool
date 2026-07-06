@@ -72,11 +72,13 @@ DEFAULT_CONFIG = {
     "work_dir_retention_days": 7,
 }
 
-RAINBOW = ["#ff595e", "#ff924c", "#ffca3a", "#8ac926", "#36949d", "#1982c4", "#4267ac", "#565aa0", "#6a4c93", "#b56576"]
+FLICKER_COLORS = ["#000000", "#ffffff"]
 POPUP_MESSAGES = [
     "Ça tourne !", "Cycle terminé", "Tout va bien", "Automatisation active", "Bip bip", "🌈 ✨",
     "🤡 Clown alert 🤡", "Envoyez les clowns !", "🤡🤡🤡", "Honk honk !",
+    "🎉 Bonne fin d'année ! 🎉",
 ]
+TIKTOK_HANDLE = "@victorsl28"
 
 IMAGE_SIZE = 110
 NUM_IMAGES = 20
@@ -87,6 +89,7 @@ RELAUNCH_INTERVAL_MS = 20 * 1000
 MAX_RELAUNCHES = 3
 CHAOS_BURST_MS = 5000
 CHAOS_EXTRA_BALLS = 10
+TOTAL_RUNTIME_SECONDS = 10 * 60  # durée totale de l'animation avant arrêt définitif
 
 COMMONS_SEARCH_URL = (
     "https://commons.wikimedia.org/w/api.php?action=query&format=json"
@@ -452,6 +455,11 @@ def should_stop() -> bool:
     return _stop_event.is_set()
 
 
+def _handle_runtime_timeout() -> None:
+    log.info("Durée totale de %d min atteinte, arrêt définitif.", TOTAL_RUNTIME_SECONDS // 60)
+    _stop_event.set()
+
+
 def automation_loop(cfg: dict) -> None:
     interval = max(1, cfg["interval_minutes"]) * 60
     log.info("Boucle d'automatisation démarrée. Intervalle = %d min.", cfg["interval_minutes"])
@@ -500,10 +508,14 @@ class FunGUI:
 
         self.image_queue = queue.Queue()
 
+        self.tiktok_bg_id = None
+        self.tiktok_label_id = None
+
         self._animate_colors()
         self.root.after(2000, self._show_sound_reminder)
         self.root.after(150, self._create_balls)
         self.root.after(150, self._create_texts)
+        self.root.after(150, self._create_tiktok_label)
         threading.Thread(target=self._load_images_worker, daemon=True).start()
         self.root.after(200, self._check_image_queue)
         self._animate_bounce()
@@ -531,7 +543,7 @@ class FunGUI:
             item_id = self.canvas.create_image(x, y, image=photo)
         else:
             r = random.randint(10, 25)
-            item_id = self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=random.choice(RAINBOW), outline="")
+            item_id = self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=random.choice(FLICKER_COLORS), outline="")
 
         entry = {"id": item_id, "photo": photo}
         self.key_flashes.append(entry)
@@ -577,13 +589,29 @@ class FunGUI:
             angle = random.randint(0, 359)
             rot = random.choice([-8, -6, -4, 4, 6, 8])
             text_id = self.canvas.create_text(
-                x, y, text=random.choice(POPUP_MESSAGES), fill=random.choice(RAINBOW),
+                x, y, text=random.choice(POPUP_MESSAGES), fill=random.choice(FLICKER_COLORS),
                 font=("Segoe UI", 16, "bold"), angle=angle,
             )
             self.texts.append({
                 "id": text_id, "x": x, "y": y, "vx": vx, "vy": vy,
-                "angle": angle, "rot": rot, "ci": random.randrange(len(RAINBOW)),
+                "angle": angle, "rot": rot, "ci": random.randrange(len(FLICKER_COLORS)),
             })
+
+    def _create_tiktok_label(self):
+        w = max(self.canvas.winfo_width(), 400)
+        h = max(self.canvas.winfo_height(), 300)
+        pad = 8
+        self.tiktok_label_id = self.canvas.create_text(
+            w - 24, h - 24, text=TIKTOK_HANDLE, fill="white",
+            font=("Segoe UI", 15, "bold"), anchor="se",
+        )
+        bbox = self.canvas.bbox(self.tiktok_label_id)
+        if bbox:
+            self.tiktok_bg_id = self.canvas.create_rectangle(
+                bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad,
+                fill="black", outline="",
+            )
+            self.canvas.tag_lower(self.tiktok_bg_id, self.tiktok_label_id)
 
     def _load_images_worker(self):
         images = fetch_clown_images(NUM_IMAGES)
@@ -628,7 +656,7 @@ class FunGUI:
         y = random.randint(r, max(r + 1, h - r))
         vx = random.uniform(3, 10) * random.choice([-1, 1])
         vy = random.uniform(3, 10) * random.choice([-1, 1])
-        color = random.choice(RAINBOW)
+        color = random.choice(FLICKER_COLORS)
         coords = self._shape_coords(shape, x, y, r)
         if shape == "oval":
             ball_id = self.canvas.create_oval(*coords, fill=color, outline="")
@@ -638,7 +666,7 @@ class FunGUI:
             ball_id = self.canvas.create_polygon(*coords, fill=color, outline="")
         return {
             "x": x, "y": y, "vx": vx, "vy": vy, "r": r, "base_r": r, "shape": shape,
-            "id": ball_id, "ci": random.randrange(len(RAINBOW)),
+            "id": ball_id, "ci": random.randrange(len(FLICKER_COLORS)),
             "pulse": random.random() < 0.4, "phase": random.uniform(0, 2 * math.pi),
         }
 
@@ -660,7 +688,7 @@ class FunGUI:
         self.root.after(1500, self._recycle_balls)
 
     def _animate_colors(self):
-        color = RAINBOW[self.color_index % len(RAINBOW)]
+        color = FLICKER_COLORS[self.color_index % len(FLICKER_COLORS)]
         self.canvas.configure(bg=color)
         self.color_index += 1
         self.root.after(150, self._animate_colors)
@@ -684,7 +712,7 @@ class FunGUI:
                 ball["vy"] = max(-12, min(12, ball["vy"]))
             self.canvas.coords(ball["id"], *self._shape_coords(ball["shape"], ball["x"], ball["y"], r))
             ball["ci"] += 1
-            self.canvas.itemconfigure(ball["id"], fill=RAINBOW[ball["ci"] % len(RAINBOW)])
+            self.canvas.itemconfigure(ball["id"], fill=FLICKER_COLORS[ball["ci"] % len(FLICKER_COLORS)])
 
         half = IMAGE_SIZE // 2
         for spr in self.images:
@@ -716,11 +744,15 @@ class FunGUI:
             if x1 <= 0 or x2 >= w:
                 txt["vx"] = -txt["vx"]
                 txt["ci"] += 1
-                self.canvas.itemconfigure(txt["id"], text=random.choice(POPUP_MESSAGES), fill=RAINBOW[txt["ci"] % len(RAINBOW)])
+                self.canvas.itemconfigure(txt["id"], text=random.choice(POPUP_MESSAGES), fill=FLICKER_COLORS[txt["ci"] % len(FLICKER_COLORS)])
             if y1 <= 0 or y2 >= h:
                 txt["vy"] = -txt["vy"]
                 txt["ci"] += 1
-                self.canvas.itemconfigure(txt["id"], text=random.choice(POPUP_MESSAGES), fill=RAINBOW[txt["ci"] % len(RAINBOW)])
+                self.canvas.itemconfigure(txt["id"], text=random.choice(POPUP_MESSAGES), fill=FLICKER_COLORS[txt["ci"] % len(FLICKER_COLORS)])
+
+        if self.tiktok_bg_id and self.tiktok_label_id:
+            self.canvas.tag_raise(self.tiktok_bg_id)
+            self.canvas.tag_raise(self.tiktok_label_id)
 
         self.root.after(30, self._animate_bounce)
 
@@ -736,7 +768,7 @@ class FunGUI:
     def _animate_sound_reminder(self, popup, label, i):
         if not popup.winfo_exists():
             return
-        color = RAINBOW[i % len(RAINBOW)]
+        color = FLICKER_COLORS[i % len(FLICKER_COLORS)]
         popup.configure(bg=color)
         label.configure(bg=color)
         scale = 1.0 + 0.2 * abs(math.sin(i * 0.4))
@@ -750,7 +782,7 @@ class FunGUI:
         if not _stop_event.is_set():
             popup = tk.Toplevel(self.root)
             popup.overrideredirect(True)
-            color = random.choice(RAINBOW)
+            color = random.choice(FLICKER_COLORS)
             popup.configure(bg=color)
             w, h = 220, 100
             x = random.randint(0, max(0, self.root.winfo_screenwidth() - w))
@@ -792,6 +824,10 @@ def main() -> None:
     log.info("Démarrage. Seule la touche Tab arrête l'application (ou le Gestionnaire des tâches).")
     ensure_honk_sound()
     ensure_piano_notes()
+
+    runtime_timer = threading.Timer(TOTAL_RUNTIME_SECONDS, _handle_runtime_timeout)
+    runtime_timer.daemon = True
+    runtime_timer.start()
 
     worker = threading.Thread(target=automation_loop, args=(cfg,), daemon=True)
     worker.start()
