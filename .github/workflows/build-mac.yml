@@ -29,6 +29,20 @@ jobs:
             --name Classeur1 \
             automation_tool.py
 
+      - name: Gatekeeper diagnostic (simulate a browser download)
+        run: |
+          echo "--- codesign info ---"
+          codesign -dv --verbose=4 dist/Classeur1.app 2>&1 || true
+          echo ""
+          echo "--- Applying quarantine attribute (what Safari/Chrome add on download) ---"
+          xattr -w com.apple.quarantine "0081;00000000;Safari;" dist/Classeur1.app
+          xattr -pl com.apple.quarantine dist/Classeur1.app || true
+          echo ""
+          echo "--- Gatekeeper assessment (spctl) ---"
+          spctl --assess --type execute --verbose=4 dist/Classeur1.app
+          echo "spctl exit code: $?"
+        continue-on-error: true
+
       - name: Package as .dmg
         run: hdiutil create -volname "Classeur1" -srcfolder dist/Classeur1.app -ov -format UDZO dist/Classeur1.dmg
 
